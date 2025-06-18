@@ -9,10 +9,11 @@ dependencies = [
     "mcp[cli]>=1.9.4",
     "pydantic>=2.11.3",
     "uvicorn>=0.34.3",
+    "python-dotenv>=1.1.0",
 ]
 
 [project.scripts]
-enrichai = "datadog_mcp_server.__main__:cli"
+datadog_mcp_server = "datadog_mcp_server.__main__:cli"
 
 [tool.uv]
 package = true
