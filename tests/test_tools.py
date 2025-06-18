@@ -184,4 +184,3 @@ def test_context_lifecycle():
 
     hc = asyncio.run(health_check())
     assert hc["contexts_count"] == 0
-
