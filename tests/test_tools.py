@@ -1,15 +1,25 @@
 import contextlib
 import types
 import asyncio
+import os
 
 import pytest
 
 from datadog_mcp_server.mcp_server import (
+    configure_datadog,
+    create_context,
+    delete_context,
+    get_context,
+    update_context,
+    list_contexts,
+    query_model,
+    health_check,
     create_event,
     list_dashboards,
     list_monitors,
     search_logs,
 )
+from datadog_mcp_server.mcp_server import _state  # type: ignore
 
 
 class DummyResp:
@@ -136,3 +146,41 @@ def test_main_docstring_no_enrichai():
 
     text = pathlib.Path("datadog_mcp_server/__main__.py").read_text()
     assert "enrichai" not in text
+
+
+def test_configure_datadog(monkeypatch):
+    monkeypatch.delenv("DD_API_KEY", raising=False)
+    monkeypatch.delenv("DD_APP_KEY", raising=False)
+    monkeypatch.delenv("DD_SITE", raising=False)
+
+    result = asyncio.run(configure_datadog("key", app_key="app", site="eu"))
+    assert result["status"] == "configured"
+    assert os.environ["DD_API_KEY"] == "key"
+    assert os.environ["DD_APP_KEY"] == "app"
+    assert os.environ["DD_SITE"] == "eu"
+    assert _state.datadog_initialized
+
+
+def test_context_lifecycle():
+    _state.contexts.clear()
+
+    asyncio.run(create_context("c1", "model", {"x": 1}, tags=["t"]))
+    ctx = asyncio.run(get_context("c1"))
+    assert ctx["model_name"] == "model"
+
+    asyncio.run(update_context("c1", "new", {"y": 2}, tags=["u"]))
+    ctx = asyncio.run(get_context("c1"))
+    assert ctx["model_name"] == "new"
+    assert ctx["tags"] == ["u"]
+
+    lst = asyncio.run(list_contexts(model_name="new"))
+    assert len(lst) == 1 and lst[0]["context_id"] == "c1"
+
+    q = asyncio.run(query_model("c1", {"q": True}))
+    assert q["result"]["processed"]
+
+    asyncio.run(delete_context("c1"))
+    assert _state.contexts == {}
+
+    hc = asyncio.run(health_check())
+    assert hc["contexts_count"] == 0
